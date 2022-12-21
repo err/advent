@@ -3,7 +3,6 @@
             [clojure.set :as set]
             [clojure.string :as str]))
 
-
 (def input-filename "resources/day5-part1.txt")
 
 (def test-input
@@ -51,8 +50,7 @@
                   reverse
                   (transduce (comp (map (fn [row] (into {} row))))
                              (completing merge+)
-                             (into (sorted-map) (map (fn [i] [i []])) indices)))})
-  )
+                             (into (sorted-map) (map (fn [i] [i []])) indices)))}))
 
 (defn parse-input
   [lines]
@@ -64,11 +62,57 @@
     {:board (parse-board (vec (butlast board)))
      :moves (mapv parse-move moves)}))
 
-(parse-input test-input)
+(comment (parse-input test-input))
 
-;; => {:board [1 2 3],
+;; => {:board
+;;     {:indices [1 2 3],
+;;      :stacks {1 ["[Z]" "[N]"], 2 ["[M]" "[C]" "[D]"], 3 ["[P]"]}},
 ;;     :moves
 ;;     [{:amount 1, :from 2, :to 1}
 ;;      {:amount 3, :from 1, :to 3}
 ;;      {:amount 2, :from 2, :to 1}
 ;;      {:amount 1, :from 1, :to 2}]}
+
+(def default-version "9000")
+
+(defn process-move
+  ([stacks {:keys [amount from to] :as move}]
+   (process-move default-version stacks move))
+  ([version stacks {:keys [amount from to]}]
+   (let [from-stack (get stacks from)
+         to-stack   (get stacks to)
+         [new-from blox] (splitv-at (- (count from-stack) amount) from-stack)]
+     (-> stacks
+         (assoc from new-from)
+         (update to into (cond-> blox (= version default-version) reverse))))))
+
+(comment
+  (let [{:keys [board moves]} (parse-input test-input)]
+    {:pre (:stacks board)
+     :mov (first moves)
+     :pos (process-move (:stacks board) (first moves))}))
+
+;; {:pre {1 ["[Z]" "[N]"], 2 ["[M]" "[C]" "[D]"], 3 ["[P]"]},
+;;  :mov {:amount 1, :from 2, :to 1},
+;;  :pos {1 ["[Z]" "[N]" "[D]"], 2 ["[M]" "[C]"], 3 ["[P]"]}}
+
+
+;; After the rearrangement procedure completes, what crate ends up on top of each stack?
+(comment
+  (with-open [rdr (clojure.java.io/reader input-filename)]
+    (let [{:keys [board moves]} (parse-input (line-seq rdr))]
+      (->> (reduce process-move (:stacks board) moves)
+           (mapv (comp second peek val))
+           (apply str)))))
+;; "FWNSHLDNZ"
+
+
+;; PART TWO: The CrateMover 9001 is notable for many new and exciting
+;; features: air conditioning, leather seats, an extra cup holder, and
+;; THE ABILITY TO PICK UP AND MOVE MULTIPLE CRATES AT ONCE.
+(with-open [rdr (clojure.java.io/reader input-filename)]
+  (let [{:keys [board moves]} (parse-input (line-seq rdr))]
+    (->> (reduce (partial process-move "9001") (:stacks board) moves)
+         (mapv (comp second peek val))
+         (apply str))))
+;; "RNRGDNFQG"
